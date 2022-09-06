@@ -9,8 +9,43 @@ util.packer_load(function(use)
     use "wbthomason/packer.nvim"
 
     -- various editing tasks
-    use "godlygeek/tabular"
-    use "romainl/vim-cool"
+    use "godlygeek/tabular" -- tables
+    use "romainl/vim-cool" -- :noh automatically after search is stopped
+    use "ojroques/vim-oscyank" -- yank using OSC character, interop with clipboard
+    -- use "m4xshen/autoclose.nvim" -- auto-close delimiters
+    use {
+        "karb94/neoscroll.nvim",
+        config = function()
+            require("neoscroll").setup {}
+            local t = {}
+
+            -- Syntax: t[keys] = {function, {function arguments}}
+            t['<C-u>'] = { 'scroll', { '-vim.wo.scroll', 'true', '80' } }
+            t['<C-d>'] = { 'scroll', { 'vim.wo.scroll', 'true', '80' } }
+            t['<C-b>'] = { 'scroll', { '-vim.api.nvim_win_get_height(0)', 'true', '160' } }
+            t['<C-f>'] = { 'scroll', { 'vim.api.nvim_win_get_height(0)', 'true', '160' } }
+            t['<C-y>'] = { 'scroll', { '-0.10', 'false', '50' } }
+            t['<C-e>'] = { 'scroll', { '0.10', 'false', '50' } }
+            t['zt']    = { 'zt', { '80' } }
+            t['zz']    = { 'zz', { '80' } }
+            t['zb']    = { 'zb', { '80' } }
+
+            require('neoscroll.config').set_mappings(t)
+        end
+    }
+    use {
+        "phaazon/hop.nvim",
+        branch = "v2",
+        config = function()
+            require("hop").setup {}
+        end
+    }
+    use {
+        "numToStr/Comment.nvim",
+        config = function()
+            require("Comment").setup {}
+        end
+    }
 
     -- Tab-completion
     use "hrsh7th/vim-vsnip"
@@ -170,7 +205,7 @@ util.packer_load(function(use)
                     -- vim.keymap.set('n', '<space>wl', function()
                     --     print(vim.inspect(vim.lsp.buf.list_workspace_folders()))
                     -- end, bufopts)
-                    vim.keymap.set('n', '<space>D', vim.lsp.buf.type_definition, bufopts {})
+                    vim.keymap.set('n', '<leader>D', vim.lsp.buf.type_definition, bufopts {})
                     vim.keymap.set('n', '<leader>rn', vim.lsp.buf.rename, bufopts { desc = "[LSP] rename" })
                     vim.keymap.set('n', '<leader>ca', vim.lsp.buf.code_action, bufopts { desc = "[LSP] code actions" })
                     vim.keymap.set('n', '<leader>f', vim.lsp.buf.formatting, bufopts { desc = "[LSP] format buffer" })
@@ -323,8 +358,6 @@ util.packer_load(function(use)
         end
     }
 
-
-
     -- null-ls
     -- use {"jose-elias-alvarez/null-ls.nvim", config= function()
     --     require("null-ls").setup({
@@ -350,10 +383,7 @@ util.packer_load(function(use)
                     separator = "➜ ", -- symbol used between a key and it's label
                     group = "+",
                 },
-                triggers_blacklist = {
-                    i = { "f", "d" },
-                    v = { "f", "d" },
-                }
+                triggers = { "<leader>", "g", "z" }
             }
         end
     }
@@ -394,6 +424,13 @@ util.packer_load(function(use)
             vim.fn.setenv("PATH", vim.fn.getenv("PATH") .. ":" .. (vim.fn.stdpath("config") .. "/nvr-scripts"))
             vim.fn.setenv("EDITOR", "nvr")
             vim.fn.setenv("EDITOR", "nvr -cc split --remote-wait")
+        end
+    }
+
+    use {
+        "numToStr/FTerm.nvim",
+        config = function()
+            require "FTerm".setup {}
         end
     }
 
@@ -462,6 +499,8 @@ keymap_set("n", "<C-j>", "<C-w><C-j>")
 keymap_set("n", "<C-k>", "<C-w><C-k>")
 keymap_set("n", "<C-l>", "<C-w><C-l>")
 
+keymap_set({ "n", "t" }, "<C-t>", require("FTerm").toggle, { desc = "Toggle FTerm" })
+
 keymap_set("n", "<leader>ps", require("packer").sync, { desc = "Packer Sync" })
 keymap_set("n", "<leader>pc", require("packer").compile, { desc = "Packer Compile" })
 keymap_set("n", "<leader>px", require("packer").clean, { desc = "Packer Clean" })
@@ -469,5 +508,58 @@ keymap_set("n", "<leader>p?", require("packer").status, { desc = "Packer Status"
 
 keymap_set("n", "<leader>e", vim.diagnostic.open_float, { desc = "Show Diagnostic" })
 keymap_set("n", "<leader>q", require("telescope.builtin").diagnostics, { desc = "Show All Diagnostics" })
+keymap_set("n", "<leader>v", "<cmd>G<CR>", { desc = "Git menu" })
+keymap_set("n", "<leader>h", require 'hop'.hint_char2, { desc = "Hop" })
 
-keymap_set("n", "<leader>v", "<cmd>G<CR>", { desc = "Fugitive" })
+-- override fFtT to use Hop intead
+keymap_set('', 'f', function()
+    require 'hop'.hint_char1({
+        direction = require 'hop.hint'.HintDirection.AFTER_CURSOR,
+        current_line_only = true
+    })
+end)
+keymap_set('', 'F', function()
+    require 'hop'.hint_char1({
+        direction = require 'hop.hint'.HintDirection.BEFORE_CURSOR,
+        current_line_only = true
+    })
+end)
+keymap_set('', 't', function()
+    require 'hop'.hint_char1({
+        direction = require 'hop.hint'.HintDirection.AFTER_CURSOR,
+        current_line_only = true,
+        hint_offset = -1,
+    })
+end)
+keymap_set('', 'T', function()
+    require 'hop'.hint_char1({
+        direction = require 'hop.hint'.HintDirection.BEFORE_CURSOR,
+        current_line_only = true,
+        hint_offset = 1,
+    })
+end)
+
+
+-- Autocommands
+local augroup = vim.api.nvim_create_augroup("default", { clear = true })
+
+vim.api.nvim_create_autocmd("TermOpen", {
+    group = augroup,
+    command = "setlocal nonumber norelativenumber",
+})
+
+vim.api.nvim_create_autocmd("TextYankPost", {
+    group = augroup,
+    callback = function()
+        -- highlight on yank
+        vim.highlight.on_yank()
+
+        -- OSC-yank if necessary
+        if vim.v.event.operator == "y" and vim.v.event.regname == "" then
+            vim.cmd [[ OSCYankReg " ]]
+        end
+    end,
+})
+
+-- Abbreviations
+vim.cmd [[ cnoreabbrev <expr> W getcmdtype() == ":" && getcmdline() == "W" ? "w" : "W" ]]

@@ -64,6 +64,13 @@ function M.set_options(t)
     for opt_type, maps in pairs(t) do
         for opt, val in pairs(maps) do
             vim[opt_type][opt] = val
+
+            if opt_type == "go" then
+                vim["o"][opt] = val
+            end
+            if opt_type == "g" then
+                vim["v"][opt] = val
+            end
         end
     end
 end
