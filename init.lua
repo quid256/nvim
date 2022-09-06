@@ -8,8 +8,9 @@ util.packer_load(function(use)
     -- packer.nvim itself
     use "wbthomason/packer.nvim"
 
-    -- table alignment
+    -- various editing tasks
     use "godlygeek/tabular"
+    use "romainl/vim-cool"
 
     -- Tab-completion
     use "hrsh7th/vim-vsnip"
@@ -91,8 +92,15 @@ util.packer_load(function(use)
     }
 
     -- LSP
-    use { "neovim/nvim-lspconfig",
-        after = { "mason-lspconfig.nvim", "cmp-nvim-lsp", "lua-dev.nvim", "telescope.nvim" },
+    use {
+        "neovim/nvim-lspconfig",
+        after = {
+            "mason-lspconfig.nvim",
+            "cmp-nvim-lsp",
+            "telescope.nvim",
+            "nvim-navic",
+            unpack(CONFIG.langs["lua"] and { "lua-dev.nvim" } or {})
+        },
         config = function()
             vim.lsp.stop_client(vim.lsp.get_active_clients(), true)
 
@@ -125,6 +133,8 @@ util.packer_load(function(use)
                 )
 
                 ls_settings["on_attach"] = function(client, bufnr)
+                    require("nvim-navic").attach(client, bufnr)
+
                     if client.supports_method("textDocument/formatting") then
                         vim.api.nvim_clear_autocmds({ group = augroup, buffer = bufnr })
                         vim.api.nvim_create_autocmd("BufWritePre", {
@@ -132,6 +142,8 @@ util.packer_load(function(use)
                             buffer = bufnr,
                             callback = function()
                                 -- on 0.8, you should use vim.lsp.buf.format({ bufnr = bufnr }) instead
+
+                                ---@diagnostic disable-next-line: missing-parameter
                                 vim.lsp.buf.formatting_sync()
                             end,
                         })
@@ -152,7 +164,7 @@ util.packer_load(function(use)
                         bufopts { desc = "[LSP] go to references" })
 
                     vim.keymap.set('n', 'K', vim.lsp.buf.hover, bufopts {})
-                    vim.keymap.set('n', '<C-k>', vim.lsp.buf.signature_help, bufopts {})
+                    vim.keymap.set('n', '<leader>s', vim.lsp.buf.signature_help, bufopts {})
                     -- vim.keymap.set('n', '<space>wa', vim.lsp.buf.add_workspace_folder, bufopts)
                     -- vim.keymap.set('n', '<space>wr', vim.lsp.buf.remove_workspace_folder, bufopts)
                     -- vim.keymap.set('n', '<space>wl', function()
@@ -173,10 +185,21 @@ util.packer_load(function(use)
         end
     }
 
+    use { "simrat39/symbols-outline.nvim",
+        config = function()
+            require("symbols-outline").setup {}
+        end
+    }
+
     -- Telescope
+    use { "nvim-telescope/telescope-ui-select.nvim", config = function()
+        require("telescope").load_extension("ui-select")
+    end }
+
     use {
         'nvim-telescope/telescope.nvim', tag = '0.1.x',
         requires = { { 'nvim-lua/plenary.nvim' } },
+        -- after = { "telescope-ui-select.nvim" },
         config = function()
             -- local themes = require("telescope.themes")
             require('telescope').setup {
@@ -190,16 +213,30 @@ util.packer_load(function(use)
                         sort_mru = true,
                         ignore_current_buffer = true,
                     },
+                },
+                extensions = {
+                    ["ui-select"] = {
+                        require("telescope.themes").get_cursor {}
+                    }
+                }
+            }
+
+        end
+    }
+
+    -- Git
+    use "tpope/vim-fugitive"
+    use {
+        "lewis6991/gitsigns.nvim",
+        config = function()
+            require("gitsigns").setup {
+                current_line_blame = true,
+                current_line_blame_opts = {
+                    delay = 700,
                 }
             }
         end
     }
-
-
-    -- Git
-    use { "lewis6991/gitsigns.nvim", config = function()
-        require("gitsigns").setup()
-    end }
 
     -- Treesitter
     use {
@@ -231,10 +268,61 @@ util.packer_load(function(use)
     use {
         "nvim-treesitter/nvim-treesitter-context",
         requires = { "nvim-treesitter/nvim-treesitter" },
+        opt = true,
+        config = function() require("treesitter-context").setup {} end
+    }
+
+
+    -- lualine
+    use {
+        "SmiteshP/nvim-navic",
+        requires = "neovim/nvim-lspconfig",
         config = function()
-            require("treesitter-context").setup {}
+            require("nvim-navic").setup {
+                separator = "  "
+            }
         end
     }
+
+    use {
+        "nvim-lualine/lualine.nvim",
+        requires = { "kyazdani42/nvim-web-devicons", opt = true },
+        after = { "nvim-navic" },
+        config = function()
+            require("lualine").setup {
+                options = {
+                    icons_enabled = true,
+                    theme = 'auto',
+                    section_separators = { left = '', right = '' },
+                    component_separators = "|",
+                    disabled_filetypes = {},
+                    always_divide_middle = true,
+                },
+                tabline = {
+                    lualine_c = { function()
+                        return require("nvim-navic").get_location {}
+                    end }
+                },
+                sections = {
+                    lualine_a = { 'mode' },
+                    lualine_b = { 'diff', 'diagnostics' },
+                    lualine_c = { 'filename' },
+                    lualine_x = { 'filetype' },
+                    lualine_y = { 'branch' },
+                    lualine_z = { 'location' },
+                },
+                inactive_sections = {
+                    lualine_a = {},
+                    lualine_b = {},
+                    lualine_c = { 'filename' },
+                    lualine_x = {},
+                    lualine_y = {},
+                    lualine_z = { 'location' },
+                },
+            }
+        end
+    }
+
 
 
     -- null-ls
@@ -247,13 +335,29 @@ util.packer_load(function(use)
     -- end}
     --
 
-    --
     use {
         "folke/which-key.nvim",
         config = function()
-            require("which-key").setup {}
+            require("which-key").setup {
+                presets = {
+                    operators = false,
+                    motions = false,
+                    text_objects = false,
+                    windows = false,
+                },
+                icons = {
+                    breadcrumb = "»", -- symbol used in the command line area that shows your active key combo
+                    separator = "➜ ", -- symbol used between a key and it's label
+                    group = "+",
+                },
+                triggers_blacklist = {
+                    i = { "f", "d" },
+                    v = { "f", "d" },
+                }
+            }
         end
     }
+
 
     -- color schemes
     use {
@@ -277,34 +381,52 @@ util.packer_load(function(use)
             vim.cmd 'colorscheme nightfox'
         end
     }
+
+    -- neovim-remote: custom loaders to install pip package in venv
+    -- Then, nvr_scripts/ will be added to PATH so that nvr can do the right thing
+    use {
+        "mhinz/neovim-remote",
+        url = "N/A",
+        installer = util.install_nvr,
+        updater = util.update_nvr,
+        config = function()
+            vim.fn.setenv("NVIM_LISTEN_ADDRESS", vim.v.servername)
+            vim.fn.setenv("PATH", vim.fn.getenv("PATH") .. ":" .. (vim.fn.stdpath("config") .. "/nvr-scripts"))
+            vim.fn.setenv("EDITOR", "nvr")
+            vim.fn.setenv("EDITOR", "nvr -cc split --remote-wait")
+        end
+    }
+
+
 end)
 
 -- options
 -- (use `:Tab /=` to align everything nicely)
 util.set_options({
     go = vim.tbl_extend("keep", CONFIG.editor_opts.go or {}, {
-        encoding      = "utf-8",
-        scrolloff     = 2,
-        mouse         = "a", -- correct mouse interaction
-        modeline      = true,
-        pastetoggle   = "<Insert>", -- use <Insert> to enter paste mode
-        termguicolors = true, -- do colors good
-        completeopt   = "menu,menuone,noselect",
-        expandtab     = true, -- convert tab character to spaces
-        shiftwidth    = 4,
-        tabstop       = 4,
-        softtabstop   = 4,
-        hidden        = true, -- Allows you to switch buffers without writing
-        signcolumn    = "yes",
+        encoding       = "utf-8",
+        scrolloff      = 2, -- keep 2 rows between cursor and end of screen
+        mouse          = "a", -- correct mouse interaction
+        modeline       = true,
+        pastetoggle    = "<Insert>", -- use <Insert> to enter paste mode
+        termguicolors  = true, -- do colors good
+        completeopt    = "menu,menuone,noselect",
+        expandtab      = true, -- convert tab character to spaces
+        shiftwidth     = 4,
+        tabstop        = 4,
+        softtabstop    = 4,
+        hidden         = true, -- Allows you to switch buffers without writing
+        signcolumn     = "yes", -- leave column on left for signs
         -- directory  = here
-        wrap          = false,
+        wrap           = false, -- don't text-wrap by default
         -- improve V
-        listchars     = "tab: ,extends:>,precedes:>",
-        list          = true,
-        shortmess     = vim.o.shortmess .. "c",
-        number        = true,
-        cursorline    = true,
-        colorcolumn   = "99",
+        listchars      = "tab: ,extends:>,precedes:>",
+        list           = true,
+        shortmess      = vim.o.shortmess .. "c",
+        number         = true, -- line numbers
+        relativenumber = true, -- relative line numbers
+        cursorline     = true, -- line to indicate where cursor is
+        colorcolumn    = "99", -- colorcolumn to indicate when code is getting wide
     }),
     g = vim.tbl_extend("keep", CONFIG.editor_opts.g or {}, {
         enable_bold_font = 1,
@@ -315,4 +437,37 @@ util.set_options({
 })
 
 
-vim.cmd [[inoremap fd <Esc>]]
+local function keymap_set(mode, from, to, overrides)
+    if type(mode) == "table" then
+        for _, m in ipairs(mode) do
+            keymap_set(m, from, to, overrides)
+        end
+        return
+    end
+
+    vim.keymap.set(mode, from, to, vim.tbl_extend("keep", overrides or {}, {
+        noremap = true,
+        silent = true,
+    }))
+end
+
+keymap_set({ "i", "t", "v" }, "fd", "<Esc>")
+keymap_set({ "n", "v" }, ";", ":")
+keymap_set({ "n", "v" }, ";;", require("telescope.builtin").buffers, { desc = "Select buffer" })
+keymap_set({ "n", "i", "t" }, "<C-p>", require("telescope.builtin").find_files, { desc = "Find Files" })
+keymap_set({ "n", "i", "t" }, "<C-f>", require("telescope.builtin").live_grep, { desc = "Grep Files" })
+
+keymap_set("n", "<C-h>", "<C-w><C-h>")
+keymap_set("n", "<C-j>", "<C-w><C-j>")
+keymap_set("n", "<C-k>", "<C-w><C-k>")
+keymap_set("n", "<C-l>", "<C-w><C-l>")
+
+keymap_set("n", "<leader>ps", require("packer").sync, { desc = "Packer Sync" })
+keymap_set("n", "<leader>pc", require("packer").compile, { desc = "Packer Compile" })
+keymap_set("n", "<leader>px", require("packer").clean, { desc = "Packer Clean" })
+keymap_set("n", "<leader>p?", require("packer").status, { desc = "Packer Status" })
+
+keymap_set("n", "<leader>e", vim.diagnostic.open_float, { desc = "Show Diagnostic" })
+keymap_set("n", "<leader>q", require("telescope.builtin").diagnostics, { desc = "Show All Diagnostics" })
+
+keymap_set("n", "<leader>v", "<cmd>G<CR>", { desc = "Fugitive" })

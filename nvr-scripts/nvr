@@ -1,0 +1,5 @@
+#!/bin/bash
+
+parent_path=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
+
+$parent_path/../pack/packer/start/neovim-remote/venv/bin/nvr $@
