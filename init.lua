@@ -50,7 +50,7 @@ util.packer_load(function(use, use_rocks)
 	-- various editing tasks
 	use("godlygeek/tabular") -- tables
 	use("romainl/vim-cool") -- :noh automatically after search is stopped
-	use("ojroques/vim-oscyank") -- yank using OSC character, interop with clipboard
+	use({ "ojroques/vim-oscyank", commit = "e6298736a7835bcb365dd45a8e8bfe86d935c1f8" }) -- yank using OSC character, interop with clipboard
 	-- use "m4xshen/autoclose.nvim" -- auto-close delimiters
 
 	-- smooth scrolling
