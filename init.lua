@@ -1,4 +1,5 @@
 package.loaded["util"] = nil
+package.loaded["my_settings"] = nil
 local util = require("util")
 
 -- load packages
@@ -28,9 +29,15 @@ util.packer_load(function(use, use_rocks)
 		requires = { "nvim-tree/nvim-web-devicons" },
 		config = function()
 			require("nvim-tree").setup({
+				update_focused_file = {
+					enable = true,
+					-- update_root = true,
+				},
+				git = {
+					ignore = false,
+				},
 				view = {
 					centralize_selection = true,
-					width = 45,
 				},
 				trash = {
 					cmd = "rm -rf",
@@ -104,11 +111,7 @@ util.packer_load(function(use, use_rocks)
 						-- "formatter.filetypes.lua" defines default configurations for the
 						-- "lua" filetype
 						require("formatter.filetypes.lua").stylua,
-
-						-- You can also define your own configuration
 						function()
-							-- Full specification of configurations is down below and in Vim help
-							-- files
 							return {
 								exe = "stylua",
 								args = {
@@ -134,6 +137,8 @@ util.packer_load(function(use, use_rocks)
 			})
 		end,
 	})
+
+	use("tpope/vim-sleuth")
 
 	-- List of simple snippets
 	use("rafamadriz/friendly-snippets")
@@ -294,54 +299,7 @@ util.packer_load(function(use, use_rocks)
 
 					require("lsp_signature").on_attach({}, bufnr)
 
-					vim.keymap.set("n", "K", vim.lsp.buf.hover, { buffer = bufnr, desc = "[LSP] hover" })
-					vim.keymap.set(
-						"n",
-						"<leader>s",
-						vim.lsp.buf.signature_help,
-						{ buffer = bufnr, desc = "[LSP] signature" }
-					)
-
-					vim.keymap.set(
-						"n",
-						"<leader>D",
-						vim.lsp.buf.type_definition,
-						{ buffer = bufnr, desc = "[LSP] go to def" }
-					)
-					vim.keymap.set("n", "<leader>rn", vim.lsp.buf.rename, { buffer = bufnr, desc = "[LSP] rename" })
-					vim.keymap.set(
-						"n",
-						"<leader>ca",
-						vim.lsp.buf.code_action,
-						{ buffer = bufnr, desc = "[LSP] code actions" }
-					)
-
-					local telescope_builtin = require("telescope.builtin")
-
-					vim.keymap.set(
-						"n",
-						"gd",
-						telescope_builtin.lsp_definitions,
-						{ desc = "[LSP] got to definition", buffer = bufnr }
-					)
-					vim.keymap.set(
-						"n",
-						"gD",
-						vim.lsp.buf.declaration,
-						{ desc = "[LSP] go to declaration", buffer = bufnr }
-					)
-					vim.keymap.set(
-						"n",
-						"gi",
-						telescope_builtin.lsp_implementations,
-						{ desc = "[LSP] go to implementation", buffer = bufnr }
-					)
-					vim.keymap.set(
-						"n",
-						"gr",
-						telescope_builtin.lsp_references,
-						{ desc = "[LSP] go to references", buffer = bufnr }
-					)
+					require("util").setup_lsp_keymaps(bufnr)
 				end
 
 				require("lspconfig")[ls_name].setup(ls_settings)
@@ -390,23 +348,35 @@ util.packer_load(function(use, use_rocks)
 		requires = { { "nvim-lua/plenary.nvim" } },
 		config = function()
 			require("telescope").setup({
+				defaults = {
+					border = {},
+					borderchars = { " ", " ", " ", " ", " ", " ", " ", " " },
+					mappings = {
+						n = { ["q"] = require("telescope.actions").close },
+					},
+					prompt_prefix = "   ",
+					selection_caret = " ",
+					entry_prefix = " ",
+				},
 				pickers = {
 					find_files = {
 						layout_strategy = "vertical",
 						layout_config = {
-							width = 0.8,
-							height = 0.8,
+							width = 0.85,
+							height = 0.85,
 						},
 						path_display = function(opts, name)
 							return require("my_settings").shorten_path(name)
 						end,
 					},
 					live_grep = {
-						layout_strategy = "vertical",
+						-- layout_strategy = "vertical",
 						layout_config = {
-							width = 0.8,
-							height = 0.8,
+							width = 0.9,
+							height = 0.9,
+							preview_cutoff = 120,
 						},
+						prompt_title = "Grep",
 						path_display = function(opts, name)
 							return require("my_settings").shorten_path(name)
 						end,
@@ -414,15 +384,19 @@ util.packer_load(function(use, use_rocks)
 					lsp_definitions = { theme = "cursor" },
 					diagnostics = { theme = "ivy" },
 					buffers = {
-						theme = "ivy",
 						sort_mru = true,
+						layout_config = {
+							width = 0.9,
+							height = 0.9,
+							preview_cutoff = 120,
+						},
 						mappings = {
 							i = {
 								["<c-d>"] = "delete_buffer",
 							},
 							n = {
 								["<c-d>"] = "delete_buffer",
-								["d"] = "delete_buffer",
+								["dd"] = "delete_buffer",
 							},
 						},
 						path_display = function(opts, name)
@@ -645,6 +619,39 @@ util.packer_load(function(use, use_rocks)
 				pack_name,
 				config = function()
 					vim.cmd([[ colorscheme everforest ]])
+					local function clamp(component)
+						return math.min(math.max(component, 0), 255)
+					end
+					function LightenDarkenColor(col, amt)
+						local num
+						if type(col) == "number" then
+							num = col
+						else
+							num = tonumber(col:sub(2), 16)
+						end
+						local r = math.floor(num / 0x10000) + amt
+						local g = (math.floor(num / 0x100) % 0x100) + amt
+						local b = (num % 0x100) + amt
+						return clamp(r) * 0x10000 + clamp(g) * 0x100 + clamp(b)
+					end
+
+					local normal_cols = vim.api.nvim_get_hl_by_name("Normal", true)
+					local dark_bg = LightenDarkenColor(normal_cols.background, -10)
+					local light_bg = LightenDarkenColor(normal_cols.background, 10)
+					local prompt_title = vim.api.nvim_get_hl_by_name("Green", true).foreground
+					local main_title = vim.api.nvim_get_hl_by_name("Blue", true).foreground
+
+					for k, v in pairs({
+						TelescopeNormal = { bg = dark_bg, fg = normal_cols.foreground },
+						TelescopeBorder = { bg = dark_bg, fg = normal_cols.foreground },
+						TelescopePromptNormal = { bg = light_bg, fg = normal_cols.foreground },
+						TelescopePromptBorder = { bg = light_bg, fg = normal_cols.foreground },
+						TelescopeTitle = { fg = dark_bg, bg = main_title },
+						TelescopePromptTitle = { fg = dark_bg, bg = prompt_title },
+						TelescopePromptPrefix = { fg = prompt_title },
+					}) do
+						vim.api.nvim_set_hl(0, k, v)
+					end
 				end,
 			})
 		else
@@ -760,10 +767,9 @@ util.set_options({
 		softtabstop = 4,
 		hidden = true, -- Allows you to switch buffers without writing
 		signcolumn = "yes", -- leave column on left for signs
-		directory = "/usr/scratch/cwinkler/swapfiles",
 		wrap = false, -- don't text-wrap by default
 		-- improve V
-		listchars = "tab: ,extends:>,precedes:>",
+		listchars = "tab:  ,extends:>,precedes:>",
 		list = true,
 		shortmess = vim.o.shortmess .. "c",
 		number = true, -- line numbers
@@ -771,12 +777,12 @@ util.set_options({
 		cursorline = true, -- line to indicate where cursor is
 		colorcolumn = "100", -- colorcolumn to indicate when code is getting wide
 		smartcase = true, -- case insensitive by default unless a capital letter is included
+		ignorecase = true,
 	},
 	g = {
 		enable_bold_font = 1,
 		enable_italic_font = 1,
 		mapleader = " ",
-		["fern#renderer"] = "nerdfont",
 	},
 })
 

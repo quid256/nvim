@@ -147,4 +147,25 @@ function M.debounce(fn, ms)
 	return wrapped_fn
 end
 
+function M.setup_lsp_keymaps(bufnr)
+	vim.keymap.set("n", "K", vim.lsp.buf.hover, { buffer = bufnr, desc = "[LSP] hover" })
+	vim.keymap.set("n", "<leader>s", vim.lsp.buf.signature_help, { buffer = bufnr, desc = "[LSP] signature" })
+
+	vim.keymap.set("n", "<leader>D", vim.lsp.buf.type_definition, { buffer = bufnr, desc = "[LSP] go to def" })
+	vim.keymap.set("n", "<leader>rn", vim.lsp.buf.rename, { buffer = bufnr, desc = "[LSP] rename" })
+	vim.keymap.set("n", "<leader>ca", vim.lsp.buf.code_action, { buffer = bufnr, desc = "[LSP] code actions" })
+
+	local telescope_builtin = require("telescope.builtin")
+
+	vim.keymap.set("n", "gd", telescope_builtin.lsp_definitions, { desc = "[LSP] got to definition", buffer = bufnr })
+	vim.keymap.set("n", "gD", vim.lsp.buf.declaration, { desc = "[LSP] go to declaration", buffer = bufnr })
+	vim.keymap.set(
+		"n",
+		"gi",
+		telescope_builtin.lsp_implementations,
+		{ desc = "[LSP] go to implementation", buffer = bufnr }
+	)
+	vim.keymap.set("n", "gr", telescope_builtin.lsp_references, { desc = "[LSP] go to references", buffer = bufnr })
+end
+
 return M
