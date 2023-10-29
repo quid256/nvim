@@ -38,6 +38,7 @@ util.packer_load(function(use, use_rocks)
 				},
 				view = {
 					centralize_selection = true,
+					width = 45,
 				},
 				trash = {
 					cmd = "rm -rf",
@@ -57,7 +58,7 @@ util.packer_load(function(use, use_rocks)
 	-- various editing tasks
 	use("godlygeek/tabular") -- tables
 	use("romainl/vim-cool") -- :noh automatically after search is stopped
-	use({ "ojroques/vim-oscyank", commit = "e6298736a7835bcb365dd45a8e8bfe86d935c1f8" }) -- yank using OSC character, interop with clipboard
+	use({ "ojroques/nvim-osc52" }) -- yank using OSC character, interop with clipboard
 	-- use "m4xshen/autoclose.nvim" -- auto-close delimiters
 
 	-- smooth scrolling
@@ -238,6 +239,21 @@ util.packer_load(function(use, use_rocks)
 					end,
 				},
 			})
+
+			cmp.setup.cmdline({ "/", "?" }, {
+				mapping = cmp.mapping.preset.cmdline(),
+				sources = {
+					{ name = "buffer" },
+				},
+			})
+
+			cmp.setup.cmdline(":", {
+				mapping = cmp.mapping.preset.cmdline(),
+				sources = cmp.config.sources({
+					{ { name = "path" } },
+					{ { name = "cmdline" } },
+				}),
+			})
 		end,
 	})
 
@@ -263,13 +279,14 @@ util.packer_load(function(use, use_rocks)
 	-- Floating LSP status notifications at bottom of screen
 	use({
 		"j-hui/fidget.nvim",
+		tag = "legacy", -- update this after the refactor is done!
 		config = function()
 			require("fidget").setup({})
 		end,
 	})
 
 	-- Kinda janky plugin to show function signature information in LSP
-	use({ "ray-x/lsp_signature.nvim" })
+	-- use({ "ray-x/lsp_signature.nvim" })
 
 	-- LSP setup
 	use({
@@ -277,7 +294,7 @@ util.packer_load(function(use, use_rocks)
 		after = {
 			"mason-lspconfig.nvim",
 			"cmp-nvim-lsp",
-			"lsp_signature.nvim",
+			-- "lsp_signature.nvim",
 			"telescope.nvim",
 			"nvim-navic",
 			"neodev.nvim",
@@ -287,6 +304,7 @@ util.packer_load(function(use, use_rocks)
 
 			vim.lsp.stop_client(vim.lsp.get_active_clients(), true)
 
+			-- local cmp_capabilities = {}
 			local cmp_capabilities = require("cmp_nvim_lsp").default_capabilities()
 
 			for ls_name, ls_settings in pairs(require("my_settings").lsp_settings()) do
@@ -297,12 +315,13 @@ util.packer_load(function(use, use_rocks)
 						require("nvim-navic").attach(client, bufnr)
 					end
 
-					require("lsp_signature").on_attach({}, bufnr)
+					-- require("lsp_signature").on_attach({}, bufnr)
 
 					require("util").setup_lsp_keymaps(bufnr)
 				end
 
-				require("lspconfig")[ls_name].setup(ls_settings)
+				-- ls_settings = require("coq").lsp_ensure_capabilities(ls_settings)
+				ls_settings = require("lspconfig")[ls_name].setup(ls_settings)
 			end
 		end,
 	})
@@ -349,6 +368,12 @@ util.packer_load(function(use, use_rocks)
 		config = function()
 			require("telescope").setup({
 				defaults = {
+					layout_strategy = "vertical",
+					layout_config = {
+						preview_cutoff = 40,
+						width = 0.85,
+						height = 0.85,
+					},
 					border = {},
 					borderchars = { " ", " ", " ", " ", " ", " ", " ", " " },
 					mappings = {
@@ -370,12 +395,6 @@ util.packer_load(function(use, use_rocks)
 						end,
 					},
 					live_grep = {
-						-- layout_strategy = "vertical",
-						layout_config = {
-							width = 0.9,
-							height = 0.9,
-							preview_cutoff = 120,
-						},
 						prompt_title = "Grep",
 						path_display = function(opts, name)
 							return require("my_settings").shorten_path(name)
@@ -439,7 +458,8 @@ util.packer_load(function(use, use_rocks)
 	use({
 		"nvim-treesitter/nvim-treesitter",
 		run = function()
-			require("nvim-treesitter.install").update({ with_sync = true })
+			local ts_update = require("nvim-treesitter.install").update({ with_sync = true })
+			ts_update()
 		end,
 		config = function()
 			require("nvim-treesitter.configs").setup({
@@ -617,8 +637,10 @@ util.packer_load(function(use, use_rocks)
 		if scheme_name == "everforest" then
 			use({
 				pack_name,
+				after = { "git-conflict.nvim" },
 				config = function()
 					vim.cmd([[ colorscheme everforest ]])
+
 					local function clamp(component)
 						return math.min(math.max(component, 0), 255)
 					end
@@ -637,18 +659,23 @@ util.packer_load(function(use, use_rocks)
 
 					local normal_cols = vim.api.nvim_get_hl_by_name("Normal", true)
 					local dark_bg = LightenDarkenColor(normal_cols.background, -10)
+					local mid_bg = LightenDarkenColor(normal_cols.background, -5)
 					local light_bg = LightenDarkenColor(normal_cols.background, 10)
-					local prompt_title = vim.api.nvim_get_hl_by_name("Green", true).foreground
-					local main_title = vim.api.nvim_get_hl_by_name("Blue", true).foreground
+					local green = vim.api.nvim_get_hl_by_name("Green", true).foreground
+					local blue = vim.api.nvim_get_hl_by_name("Blue", true).foreground
+					local red = vim.api.nvim_get_hl_by_name("Red", true).foreground
+					local orange = vim.api.nvim_get_hl_by_name("Orange", true).foreground
 
 					for k, v in pairs({
 						TelescopeNormal = { bg = dark_bg, fg = normal_cols.foreground },
 						TelescopeBorder = { bg = dark_bg, fg = normal_cols.foreground },
 						TelescopePromptNormal = { bg = light_bg, fg = normal_cols.foreground },
 						TelescopePromptBorder = { bg = light_bg, fg = normal_cols.foreground },
-						TelescopeTitle = { fg = dark_bg, bg = main_title },
-						TelescopePromptTitle = { fg = dark_bg, bg = prompt_title },
-						TelescopePromptPrefix = { fg = prompt_title },
+						TelescopeResultsNormal = { bg = mid_bg, fg = normal_cols.foreground },
+						TelescopeResultsBorder = { bg = mid_bg, fg = normal_cols.foreground },
+						TelescopeTitle = { fg = dark_bg, bg = blue },
+						TelescopePromptTitle = { fg = dark_bg, bg = green },
+						TelescopePromptPrefix = { fg = green },
 					}) do
 						vim.api.nvim_set_hl(0, k, v)
 					end
@@ -674,12 +701,12 @@ util.packer_load(function(use, use_rocks)
 		end,
 	})
 
-	use({
-		"numToStr/FTerm.nvim",
-		config = function()
-			require("FTerm").setup({})
-		end,
-	})
+	-- use({
+	-- 	"numToStr/FTerm.nvim",
+	-- 	config = function()
+	-- 		require("FTerm").setup({})
+	-- 	end,
+	-- })
 
 	use({
 		"lukas-reineke/indent-blankline.nvim",
@@ -710,23 +737,39 @@ util.packer_load(function(use, use_rocks)
 		"akinsho/git-conflict.nvim",
 		tag = "*",
 		config = function()
-			require("git-conflict").setup()
+			require("git-conflict").setup({
+				highlights = {
+					incoming = "DiffChange",
+					current = "DiffAdd",
+					parent = "DiffDelete",
+				},
+			})
+		end,
+	})
+	use({
+		"folke/zen-mode.nvim",
+		config = function()
+			require("zen-mode").setup({
+				-- your configuration comes here
+				-- or leave it empty to use the default settings
+				-- refer to the configuration section below
+			})
 		end,
 	})
 
 	-- fast fd for escape
-	use({
-		"max397574/better-escape.nvim",
-		config = function()
-			-- lua, default settings
-			require("better_escape").setup({
-				mapping = { "fd" }, -- a table with mappings to use
-				timeout = vim.o.timeoutlen, -- the time in which the keys must be hit in ms. Use option timeoutlen by default
-				clear_empty_lines = false, -- clear line after escaping if there is only whitespace
-				keys = "<Esc>", -- keys used for escaping, if it is a function will use the result everytime
-			})
-		end,
-	})
+	-- use({
+	-- 	"max397574/better-escape.nvim",
+	-- 	config = function()
+	-- 		-- lua, default settings
+	-- 		require("better_escape").setup({
+	-- 			mapping = { "fd" }, -- a table with mappings to use
+	-- 			timeout = vim.o.timeoutlen, -- the time in which the keys must be hit in ms. Use option timeoutlen by default
+	-- 			clear_empty_lines = false, -- clear line after escaping if there is only whitespace
+	-- 			keys = "<Esc>", -- keys used for escaping, if it is a function will use the result everytime
+	-- 		})
+	-- 	end,
+	-- })
 
 	-- use({
 	-- 	"ThePrimeagen/harpoon",
@@ -762,12 +805,13 @@ util.set_options({
 		termguicolors = true, -- do colors good
 		completeopt = "menu,menuone,noselect",
 		expandtab = true, -- convert tab character to spaces
-		shiftwidth = 4,
 		tabstop = 4,
+		shiftwidth = 4,
 		softtabstop = 4,
 		hidden = true, -- Allows you to switch buffers without writing
 		signcolumn = "yes", -- leave column on left for signs
 		wrap = false, -- don't text-wrap by default
+		clipboard = "unnamedplus",
 		-- improve V
 		listchars = "tab:  ,extends:>,precedes:>",
 		list = true,
@@ -785,8 +829,7 @@ util.set_options({
 		mapleader = " ",
 	},
 })
-
--- vim.keymap.set({ "i" }, "fd", "<Esc>") -- done by a plugin
+vim.keymap.set({ "i" }, "fd", "<Esc>") -- done by a plugin
 vim.keymap.set({ "t" }, "fd", "<c-\\><c-n>")
 vim.keymap.set({ "n", "v" }, ";", ":")
 
@@ -824,7 +867,7 @@ end, { desc = "Go to primary terminal" })
 
 vim.keymap.set("n", "<leader>e", vim.diagnostic.open_float, { desc = "Show Diagnostic" })
 vim.keymap.set("n", "<leader>v", "<cmd>G<CR>", { desc = "Git menu" })
-vim.keymap.set("n", "<leader>m", function()
+vim.keymap.set("n", "<leader>mc", function()
 	local row, _ = unpack(vim.api.nvim_win_get_cursor(0))
 	row = row - 1
 
@@ -860,8 +903,8 @@ vim.api.nvim_create_autocmd("TextYankPost", {
 		vim.highlight.on_yank()
 
 		-- OSC-yank if necessary
-		if vim.v.event.operator == "y" and vim.v.event.regname == "" then
-			vim.cmd([[ OSCYankReg " ]])
+		if vim.v.event.operator == "y" and vim.v.event.regname == "+" then
+			require("osc52").copy_register("+")
 		end
 	end,
 })
