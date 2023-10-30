@@ -19,6 +19,7 @@ function M.lsp_settings()
 				},
 			},
 		},
+		tsserver = {},
 	}
 end
 

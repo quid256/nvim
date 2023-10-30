@@ -1,5 +1,6 @@
 package.loaded["util"] = nil
 package.loaded["my_settings"] = nil
+package.loaded["beancount_setup"] = nil
 
 local util = require("util")
 
@@ -31,6 +32,7 @@ util.set_options({
 		smartcase = true, -- case insensitive by default unless a capital letter is included
 		ignorecase = true,
 		backupcopy = "yes", -- makes vim play nice with inotify
+		shell = "fish",
 	},
 	g = {
 		enable_bold_font = 1,
@@ -779,6 +781,33 @@ require("lazy").setup({
 			{ "<leader>z", "<cmd>Zen<cr>", desc = "Activate zen mode" },
 		},
 	},
+	{
+		"akinsho/flutter-tools.nvim",
+		after = {
+			"cmp-nvim-lsp",
+			"telescope.nvim",
+			"nvim-navic",
+		},
+		requires = "nvim-lua/plenary.nvim",
+		ft = "flutter",
+		config = function()
+			require("flutter-tools").setup({
+				lsp = {
+					color = {
+						enabled = true,
+					},
+					capabilities = require("cmp_nvim_lsp").default_capabilities(),
+					on_attach = function(client, bufnr)
+						if client.server_capabilities.documentSymbolProvider then
+							require("nvim-navic").attach(client, bufnr)
+						end
+
+						require("util").setup_lsp_keymaps(bufnr)
+					end,
+				},
+			})
+		end,
+	},
 })
 
 vim.keymap.set({ "i" }, "fd", "<Esc>")
@@ -882,6 +911,8 @@ vim.api.nvim_create_autocmd("FileType", {
 -- 		end
 -- 	end,
 -- })
+
+require("beancount_setup").setup()
 
 -- Abbreviations
 vim.cmd([[ cnoreabbrev <expr> W getcmdtype() == ":" && getcmdline() == "W" ? "w" : "W" ]])
